@@ -11,7 +11,7 @@
  * Copyright (c) 2008-2009 James Klassen
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the “Software”), to
+ * of this software and associated documentation files (the 'Software'), to
  * deal in the Software without restriction, including without limitation the
  * rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
  * sell copies of the Software, and to permit persons to whom the Software is
@@ -20,7 +20,7 @@
  * The above copyright notice and this permission notice shall be included in
  * all copies of this Software or works derived from this Software.
  * 
- * THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * THE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
  * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
@@ -171,7 +171,10 @@ function USNG2() {
 		
 		utm_easting = ((ew_idx + 1) * 100000) + easting; // Should be [100000, 9000000]
 		utm_northing = ((ns_idx + 0) * 100000) + northing; // Should be [0, 2000000)
-		
+
+		// TODO: this really depends on easting too...
+		// At this point know UTM zone, Grid Zone (min latitude), and easting
+		// Right now this is lookup table returns a max number based on lon == utm zone center 	
 		min_northing = GridZonesNorthing[GridZones.indexOf(grid_zone)]; // Unwrap northing to ~ [0, 10000000]
 		utm_northing += 2000000 * Math.ceil((min_northing - utm_northing) / 2000000);
 
@@ -179,6 +182,15 @@ function USNG2() {
 		ll = utm_proj.invProj(utm_zone, utm_easting, utm_northing);
 		ll_utm_zone = Math.floor((ll.lon - (-180.0)) / 6.0) + 1;
 		ll_grid_zone = GridZones[Math.floor((ll.lat - (-80.0)) / 8)];
+
+		// If error from the above TODO mattered... then need to move north a grid
+		if( ll_grid_zone != grid_zone) {
+			utm_northing -= 2000000;
+			ll = utm_proj.invProj(utm_zone, utm_easting, utm_northing);
+			ll_utm_zone = Math.floor((ll.lon - (-180.0)) / 6.0) + 1;
+			ll_grid_zone = GridZones[Math.floor((ll.lat - (-80.0)) / 8)];
+		}
+
 		if(ll_utm_zone != utm_zone || ll_grid_zone != grid_zone) {
 			throw("USNG: calculated coordinate not in correct UTM or grid zone! Supplied: "+utm_zone+grid_zone+" Calculated: "+ll_utm_zone+ll_grid_zone);
 			//throw(RangeError("USNG: calculated coordinate not in correct UTM or grid zone! Supplied: "+utm_zone+grid_zone+" Calculated: "+ll_utm_zone+ll_grid_zone));
@@ -253,7 +265,7 @@ function USNG2() {
 		 * We have everything (14TPU)
 		 * We are missing the UTM zone (PU)
 		 * We are missing the UTM zone and the grid designator
-		 * TODO: Need to thorw an exception if utm_zone and no grid_zone as invalid
+		 * TODO: Need to throw an exception if utm_zone and no grid_zone as invalid
 		 * TODO: Also need to throw an exception if don't have at least one of grid_zone and coordinate...maybe
 		 * TODO: Error if grid_zone is not in GridZones
 		 */	
