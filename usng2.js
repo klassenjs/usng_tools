@@ -130,7 +130,7 @@ window.USNG2 = function() {
 			grid_northing = northing.substr(0, precision);
 		}
 		
-		var usng_string = String(utm_zone) + grid_zone + grid_square + grid_easting + grid_northing; 
+		var usng_string = String(utm_zone) + grid_zone + " " + grid_square + " " + grid_easting + " " + grid_northing; 
 		return(usng_string);
 	}
 
