@@ -78,6 +78,9 @@ window.USNG2 = function() {
 		
 		var ew_idx = Math.floor(utm_easting / 100000) - 1; // should be [100000, 9000000]
 		var ns_idx = Math.floor((utm_northing % 2000000) / 100000); // should [0, 10000000) => [0, 2000000)
+		if(ns_idx < 0) { /* handle southern hemisphere */
+			ns_idx += 20;
+		}
 		switch(grid_square_set) {
 			case 1:
 				grid_square = EWLetters14[ew_idx] + NSLetters135[ns_idx];
@@ -104,7 +107,13 @@ window.USNG2 = function() {
 		
 		// Calc Easting and Northing integer to 100,000s place
 		var easting  = Math.floor(utm_easting % 100000).toString();
-		var northing = Math.floor(utm_northing % 100000).toString()
+		var northing = Math.floor(utm_northing % 100000);
+		if(northing < 0) {
+			// TODO: Does this switch to southing or is 1m south of the equator 99999?
+			northing += 100000;
+			//northing = -northing;
+		}
+		northing = northing.toString();
 
 		// Pad up to meter precision (5 digits)
 		while(easting.length < 5) easting = '0' + easting;
