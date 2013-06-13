@@ -287,6 +287,13 @@ window.USNG2 = function() {
 			utm_zone = fields[1];
 			grid_zone = fields[2];
 		}
+		// Allow the number-less A,B,Y,Z UPS grid zones
+		if(!utm_zone) {
+			re = new RegExp("([A-Z])");
+			fields = re.exec(usng);
+			if(fields)
+				grid_zone = fields[1];
+		}
 
 		// Use lonlat Point as approx Location to fill in missing prefix info
 		// Note: actual prefix need not be the same as that of the llPoint (we could cross 100km grid squares, utm zones, etc.)
@@ -302,8 +309,11 @@ window.USNG2 = function() {
 		 * TODO: Also need to throw an exception if don't have at least one of grid_zone and coordinate...maybe
 		 * TODO: Error if grid_zone is not in GridZones
 		 */	
+
 		if(utm_zone && grid_zone && grid_square) {
-			; // We have everything so there is nothing more to do.
+			; // We have everything so there is nothing more to do, UTM.
+		} else if((grid_zone == "A" || grid_zone == "B" || grid_zone == "Y" || grid_zone == "Z") && grid_square) {
+			; // We have everything so there is nothing more to do, UPS.
 		} else if(grid_square && initial_lonlat) {
 			// We need to find the utm_zone and grid_zone
 			// We know the grid zone so first we need to find the closest matching grid zone
@@ -320,6 +330,7 @@ window.USNG2 = function() {
 
 			// Check the min ranges that need to be searched based on the spec.
 			// Need to wrap UTM zones mod 60
+			// TODO: check zones A,B,Y,Z.
 			for(utm_zone = ll_utm_zone - 1; utm_zone <= ll_utm_zone+1; utm_zone++) { // still true at 80*?
 				for(grid_zone_idx = 0; grid_zone_idx < 20; grid_zone_idx++) {
 					grid_zone = GridZones[grid_zone_idx];
@@ -426,7 +437,11 @@ window.USNG2 = function() {
 		} else {
 			throw("USNG: Not enough information to locate point.");
 		}
-		return(this.toUTMFromFullParsedUSNG(utm_zone, grid_zone, grid_square, easting, northing, precision));
+
+		if(grid_zone == "A" || grid_zone == "B" || grid_zone == "Y" || grid_zone == "Z")
+			return(this.toUPSFromFullParsedUSNG(grid_zone, grid_square, easting, northing, precision));
+		else
+			return(this.toUTMFromFullParsedUSNG(utm_zone, grid_zone, grid_square, easting, northing, precision));
 	}
 
 
@@ -477,10 +492,68 @@ window.USNG2 = function() {
 		return grid_zone + " " + grid_square + " " + grid_x + " " + grid_y;
 	}
 
-	this.toUPS = function()
+
+	this.toUPSFromFullParsedUSNG = function(grid_zone, grid_square, grid_x, grid_y, precision)
 	{
+		if(!Proj4js)
+			throw("USNG: Zones A,B,Y, and Z require Proj4js.");
+	
+		/* Start at the pole */
+		var ups_x = 2000000;
+		var ups_y = 2000000;
 
+		/* Offset based on 100km grid square */
+		var x_idx = XLetters.indexOf(grid_square[0]);
+		if(x_idx < 0)
+			throw("USNG: Invalid grid square.");
+		var y_idx;
+		switch(grid_zone) {
+			case 'A': // South West half-hemisphere
+				x_idx = x_idx - 18;
+			case 'B': // South East half-hemisphere
+				y_idx = YSLetters.indexOf(grid_square[1]);
+				if(x_idx < -12 || x_idx > 11 || y_idx < 0)
+					throw("USNG: Invalid grid square.");
 
+				if(y_idx > 11)
+					y_idx = y_idx - 24;
+				break;
+
+			case 'Y': // North West half-hemisphere
+				x_idx = x_idx - 18;
+			case 'Z': // North East half-hemisphere
+				y_idx = YNLetters.indexOf(grid_square[1]);
+				if(x_idx < -7 || x_idx > 6 || y_idx < 0)
+					throw("USNG: Invalid grid square.");
+
+				if(y_idx > 6)
+					y_idx = y_idx - 14;
+				break;
+
+			default:
+				throw( "UPS only valid in zones A, B, Y, and Z" );
+		};
+		console.log(x_idx, y_idx);
+		ups_x += x_idx * 100000;
+		ups_y += y_idx * 100000;
+
+		/* Offset based on grid_x,y */
+		ups_x += grid_x;
+		ups_y += grid_y;
+
+		// Check that the coordinate is within the ups zone and grid zone specified:
+		var ll = { x: ups_x, y: ups_y };
+		if(grid_zone == "A" || grid_zone == "B") {
+			Proj4js.transform(south_proj, ll_proj, ll);
+			if(ll.y > -80.0)
+				throw("USNG: Grid Zone A or B but Latitude > -80.");
+		} else {
+			Proj4js.transform(north_proj, ll_proj, ll);
+			if(ll.y < 84.0)
+				throw("USNG: Grid Zone Y or Z but Latitude < 84.");
+		}
+
+		return { grid_zone : grid_zone, x : ups_x, y : ups_y, precision : precision };	
 	}
 
 
@@ -534,8 +607,22 @@ window.USNG2 = function() {
 	this.toLonLat = function(usng, initial_lonlat)
 	{
 		var result = this.toUTM(usng, initial_lonlat);
-		var ll = utm_proj.invProj(result.zone, result.easting, result.northing);
-		ll.precision = result.precision;
+		var grid_zone = result.grid_zone;
+		var ll;
+
+		console.log(result);
+		if(south_proj && (grid_zone == "A" || grid_zone == "B")) {
+			var pt = {x: result.x, y: result.y};
+			Proj4js.transform( south_proj, ll_proj, pt );
+			ll = { lon: pt.x, lat: pt.y, precision: result.precision };
+		} else if(north_proj && (grid_zone == "Y" || grid_zone == "Z")) {
+			var pt = {x: result.x, y: result.y};
+			Proj4js.transform( north_proj, ll_proj, pt );
+			ll = { lon: pt.x, lat: pt.y, precision: result.precision };
+		} else {
+			ll = utm_proj.invProj(result.zone, result.easting, result.northing);
+			ll.precision = result.precision;
+		}
 		return (ll);
 	}
 	
