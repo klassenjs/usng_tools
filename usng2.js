@@ -334,7 +334,6 @@ window.USNG2 = function() {
 
 			// Check the min ranges that need to be searched based on the spec.
 			// Need to wrap UTM zones mod 60
-			// TODO: check zones A,B,Y,Z.
 			for(utm_zone = ll_utm_zone - 1; utm_zone <= ll_utm_zone+1; utm_zone++) { // still true at 80*?
 				for(var grid_zone_idx = 0; grid_zone_idx < 20; grid_zone_idx++) {
 					grid_zone = GridZones[grid_zone_idx];
@@ -353,8 +352,30 @@ window.USNG2 = function() {
 					}
 				}
 			}
+			// Search UPS zones
+			var ups_zones;
+			if(initial_lonlat.lat > 0)
+				ups_zones = ['Y', 'Z'];
+			else
+				ups_zones = ['A', 'B'];
+			for(var grid_zone_idx in ups_zones) {
+				grid_zone = ups_zones[grid_zone_idx];
+				try {
+					var result = this.toLonLat(grid_zone + grid_square + digits); // usng should be [A-Z][A-Z][0-9]+
+
+					var arc_distance = this.llDistance(initial_lonlat, result);
+					//console.log(grid_zone + grid_square + digits + " " + arc_distance);
+					if(arc_distance < min_arc_distance) {
+						min_arc_distance = arc_distance;
+						min_utm_zone = null;
+						min_grid_zone = grid_zone;
+					}
+				} catch(e) {
+					;//console.log("USNG: upstream: "+e); // catch range errors and ignore
+				}
+			}
 				
-			if(min_utm_zone && min_grid_zone) {
+			if(min_grid_zone) {
 				utm_zone = min_utm_zone;
 				grid_zone = min_grid_zone;
 			} else {
@@ -430,8 +451,44 @@ window.USNG2 = function() {
 					}
 				}
 			}
+			// Search UPS zones
+			var ups_zones;
+			var y_zones;
+			var y_max;
+			if(initial_lonlat.lat > 0) { 
+				ups_zones = ['Y', 'Z'];
+				y_zones = YNLetters;
+				y_max = 14;
+			} else {
+				ups_zones = ['A', 'B'];
+				y_zones = YSLetters;
+				y_max = 24;
+			}
+			for(var grid_zone_idx in ups_zones) {
+				grid_zone = ups_zones[grid_zone_idx];
+
+				for(var y_idx = 0; y_idx < y_max; y_idx++) {
+					for(var x_idx = 0; x_idx < 18; x_idx++) {
+						try {
+							grid_square = XLetters[x_idx]+y_zones[y_idx];
+							var result = this.toLonLat(grid_zone + grid_square + digits); // usng should be [A-Z][A-Z][0-9]+
+
+							var arc_distance = this.llDistance(initial_lonlat, result);
+							//console.log(grid_zone + grid_square + digits + " " + arc_distance);
+							if(arc_distance < min_arc_distance) {
+								min_arc_distance = arc_distance;
+								min_utm_zone = null;
+								min_grid_zone = grid_zone;
+								min_grid_square = grid_square;
+							}
+						} catch(e) {
+							; //console.log("USNG: upstream: "+e); // catch range errors and ignore
+						}
+					}
+				}
+			}
 				
-			if(min_utm_zone && min_grid_zone) {
+			if(min_grid_zone) {
 				utm_zone = min_utm_zone;
 				grid_zone = min_grid_zone;
 				grid_square = min_grid_square;
