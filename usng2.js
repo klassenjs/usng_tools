@@ -29,21 +29,6 @@
  * IN THE SOFTWARE.
  */
 
-/* TODO: Wrong zone after truncation in fromLonLat():
-
-l = {lat: 82.248, lon: -95.850};     // Object {lat: 82.248, lon: -95.85}
-
-u5 = new USNG2().fromLonLat(l, 5)    // "15X VM 57099 33570"
-new USNG2().toLonLat(u5);            // Object {lon: -95.85000225058748, lat: 82.24799826229844, precision: 5}
-
-u = new USNG2().fromLonLat(l, 1)     // "15X VM 5 3"
-ll = new USNG2().toLonLat(u);        // "USNG: calculated coordinate not in correct UTM or grid zone! Supplied: 15X Calculated: 14X"
-                                     // {lon: -96.30708740388285, lat: 82.21267911942608, precision: 1}
-new USNG2().fromLonLat(ll, 3);       // "14X NS 407 295"
-new USNG2().toLonLat("14X NS 4 3");  // Object {lon: -96.35328201757325, lat: 82.21728865249023, precision: 1}
-
-*/
-
 window.USNG2 = function() {
 	// Note: grid locations are the SW corner of the grid square (because easting and northing are always positive)
 	//                   0   1   2   3   4   5   6   7   8   9  10  11  12  13  14  15  16  17  18  19   x 100,000m northing
@@ -100,7 +85,7 @@ window.USNG2 = function() {
 		
 		var grid_square_set = utm_zone % 6;
 		
-		var ew_idx = Math.floor(utm_easting / 100000) - 1; // should be [100000, 9000000]
+		var ew_idx = Math.floor(utm_easting / 100000) - 1; // should be [100000, 900000]
 		var ns_idx = Math.floor((utm_northing % 2000000) / 100000); // should [0, 10000000) => [0, 2000000)
 		if(ns_idx < 0) { /* handle southern hemisphere */
 			ns_idx += 20;
@@ -159,7 +144,7 @@ window.USNG2 = function() {
 	}
 
 	// Calculate UTM easting and northing from full, parsed USNG coordinate
-	this.toUTMFromFullParsedUSNG = function(utm_zone, grid_zone, grid_square, grid_easting, grid_northing, precision)
+	this.toUTMFromFullParsedUSNG = function(utm_zone, grid_zone, grid_square, grid_easting, grid_northing, precision, strict)
 	{
 		var utm_easting = 0;
 		var utm_northing = 0;
@@ -199,11 +184,11 @@ window.USNG2 = function() {
 		var ns_idx = ns_grid.indexOf(grid_square[1]);
 		
 		if(ew_idx == -1 || ns_idx == -1)
-			throw("USNG: Invalid USNG 100km grid designator.");
+			throw("USNG: Invalid USNG 100km grid designator for UTM zone " + utm_zone + ".");
 			//throw(RangeError("USNG: Invalid USNG 100km grid designator."));
 		
-		utm_easting = ((ew_idx + 1) * 100000) + grid_easting; // Should be [100000, 9000000]
-		utm_northing = ((ns_idx + 0) * 100000) + grid_northing; // Should be [0, 2000000)
+		utm_easting = ((ew_idx + 1) * 100000) + grid_easting; // Should be [100,000, 900,000]
+		utm_northing = ((ns_idx + 0) * 100000) + grid_northing; // Should be [0, 2,000,000)
 
 		// TODO: this really depends on easting too...
 		// At this point know UTM zone, Grid Zone (min latitude), and easting
@@ -224,14 +209,43 @@ window.USNG2 = function() {
 			ll_grid_zone = GridZones[Math.floor((ll.lat - (-80.0)) / 8)];
 		}
 
-		if(ll_utm_zone != utm_zone || ll_grid_zone != grid_zone) {
-			throw("USNG: calculated coordinate not in correct UTM or grid zone! Supplied: "+utm_zone+grid_zone+" Calculated: "+ll_utm_zone+ll_grid_zone);
-			//throw(RangeError("USNG: calculated coordinate not in correct UTM or grid zone! Supplied: "+utm_zone+grid_zone+" Calculated: "+ll_utm_zone+ll_grid_zone));
+		if(strict) {
+			if(ll.lat > 84.0 || ll.lat < -80.0)
+				throw("USNG: Latitude " + ll.lat + " outside valid UTM range.");
+			if(ll_utm_zone != utm_zone)
+				throw("USNG: calculated coordinate not in correct UTM zone! Supplied: "+utm_zone+grid_zone+" Calculated: "+ll_utm_zone+ll_grid_zone);
+			if(ll_grid_zone != grid_zone)
+				throw("USNG: calculated coordinate not in correct grid zone! Supplied: "+utm_zone+grid_zone+" Calculated: "+ll_utm_zone+ll_grid_zone);
+		} else {
+			// Loosen requirements to allow for grid extensions that don't introduce ambiguity.
+		
+			// "The UTM grid extends to 80°30'S and 84°30'N, providing a 30-minute overlap with the UPS grid."
+			// -- http://earth-info.nga.mil/GandG/publications/tm8358.1/tr83581b.html Section 2-6.3.1
+			if(ll.lat > 84.5 || ll.lat < -79.5)
+				throw("USNG: Latitude " + ll.lat + " outside valid UTM range.");
+
+			// 100km grids E-W unique +/- 2 UTM zones of the correct UTM zone.
+			// 100km grids unique for 800,000m in one UTM zone.
+			// Thus, two limiting conditions for uniqueness:
+			//		UTM zone max width = 665,667m at equator => 800,000m is 1.2 UTM 6* zones wide at 0*N. => 67000m outside zone.
+			//			=> utm_easting in [100,000, 900,000] (800,000m wide centered at 500,000m (false easting) 
+			//		UTM zone min width = 63,801m at 84.5* N. => 12 UTM 6* zones.  => 2 UTM zones.
+			if(utm_easting < 100000 || utm_easting > 900000)
+				throw("USNG: calculated coordinate not in correct UTM zone! Supplied: "+utm_zone+grid_zone+" Calculated: "+ll_utm_zone+ll_grid_zone);
+			var utm_zone_diff = Math.abs(ll_utm_zone - utm_zone);
+			if(utm_zone_diff > 2 && utm_zone_diff < 58) // utm_zone wraps 1..60,1
+				throw("USNG: calculated coordinate not in correct UTM zone! Supplied: "+utm_zone+grid_zone+" Calculated: "+ll_utm_zone+ll_grid_zone);
+
+			// 100km grids N-S unique +/- 2,000,000 meters
+			// A grid zone is roughly 887,570 meters N-S
+			// => unique +/- 1 grid zone.
+			var ll_idx = NSLetters135.indexOf(ll_grid_zone); // 135 or 246 doesn't matter
+			var gz_idx = NSLetters135.indexOf(grid_zone);    // letters in same order and circular subtraction.
+			var gz_diff  = Math.abs(ll_idx - gz_idx);
+			if(gz_diff > 1 && gz_diff < 19)
+				throw("USNG: calculated coordinate not in correct grid zone! Supplied: "+utm_zone+grid_zone+" Calculated: "+ll_utm_zone+ll_grid_zone);
 		}
 
-		if(ll.lat > 84.0 || ll.lat < -80) 
-			throw("USNG: Latitude outside valid UTM range");
-	
 		var usng_string = String(utm_zone) + grid_zone + " " + grid_square + " " + grid_easting + " " + grid_northing;
 		return { zone : utm_zone, easting : utm_easting, northing : utm_northing, precision : precision, usng: usng_string };	
 	}
@@ -249,13 +263,13 @@ window.USNG2 = function() {
 	 * Second parameter: a LonLat point to use to disambiguate a truncated USNG point
 	 * Returns: The LonLat point
 	 */ 
-	this.toUTM = function(usng, initial_lonlat) {
+	this.toUTM = function(usng, initial_lonlat, strict) {
 		// Parse USNG into component parts
 		var easting = 0;
 		var northing = 0;
 		var precision = 0;
 
-		var digits = null; /* don't really need this if using call to parsed... */
+		var digits = ""; /* don't really need this if using call to parsed... */
 		var grid_square = null;
 		var grid_zone = null;
 		var utm_zone = null;
@@ -338,7 +352,7 @@ window.USNG2 = function() {
 				for(var grid_zone_idx = 0; grid_zone_idx < 20; grid_zone_idx++) {
 					grid_zone = GridZones[grid_zone_idx];
 					try {
-						var result = this.toLonLat((utm_zone%60) + grid_zone + grid_square + digits); // usng should be [A-Z][A-Z][0-9]+
+						var result = this.toLonLat((utm_zone%60) + grid_zone + grid_square + digits, null, true); // usng should be [A-Z][A-Z][0-9]+
 
 						var arc_distance = this.llDistance(initial_lonlat, result);
 						//console.log(utm_zone + grid_zone + grid_square + digits + " " + arc_distance);
@@ -361,7 +375,7 @@ window.USNG2 = function() {
 			for(var grid_zone_idx in ups_zones) {
 				grid_zone = ups_zones[grid_zone_idx];
 				try {
-					var result = this.toLonLat(grid_zone + grid_square + digits); // usng should be [A-Z][A-Z][0-9]+
+					var result = this.toLonLat(grid_zone + grid_square + digits, null, true); // usng should be [A-Z][A-Z][0-9]+
 
 					var arc_distance = this.llDistance(initial_lonlat, result);
 					//console.log(grid_zone + grid_square + digits + " " + arc_distance);
@@ -434,7 +448,7 @@ window.USNG2 = function() {
 						for(var ew_idx = 0; ew_idx < 8; ew_idx++) {
 							try {
 								grid_square = ew_grid[ew_idx]+ns_grid[ns_idx];
-								var result = this.toLonLat((utm_zone%60) + grid_zone + grid_square + digits); // usng should be [A-Z][A-Z][0-9]+
+								var result = this.toLonLat((utm_zone%60) + grid_zone + grid_square + digits, null, true); // usng should be [A-Z][A-Z][0-9]+
 
 								var arc_distance = this.llDistance(initial_lonlat, result);
 								//console.log(utm_zone + grid_zone + grid_square + digits + " " + arc_distance);
@@ -471,7 +485,7 @@ window.USNG2 = function() {
 					for(var x_idx = 0; x_idx < 18; x_idx++) {
 						try {
 							grid_square = XLetters[x_idx]+y_zones[y_idx];
-							var result = this.toLonLat(grid_zone + grid_square + digits); // usng should be [A-Z][A-Z][0-9]+
+							var result = this.toLonLat(grid_zone + grid_square + digits, null, true); // usng should be [A-Z][A-Z][0-9]+
 
 							var arc_distance = this.llDistance(initial_lonlat, result);
 							//console.log(grid_zone + grid_square + digits + " " + arc_distance);
@@ -503,7 +517,7 @@ window.USNG2 = function() {
 		if(grid_zone == "A" || grid_zone == "B" || grid_zone == "Y" || grid_zone == "Z")
 			return(this.toUPSFromFullParsedUSNG(grid_zone, grid_square, easting, northing, precision));
 		else
-			return(this.toUTMFromFullParsedUSNG(utm_zone, grid_zone, grid_square, easting, northing, precision));
+			return(this.toUTMFromFullParsedUSNG(utm_zone, grid_zone, grid_square, easting, northing, precision, strict));
 	}
 
 
@@ -667,9 +681,9 @@ window.USNG2 = function() {
 
 
 	
-	this.toLonLat = function(usng, initial_lonlat)
+	this.toLonLat = function(usng, initial_lonlat, strict)
 	{
-		var result = this.toUTM(usng, initial_lonlat);
+		var result = this.toUTM(usng, initial_lonlat, strict);
 		var grid_zone = result.grid_zone;
 		var ll;
 
