@@ -159,7 +159,7 @@ window.USNG2 = function() {
 	}
 
 	// Calculate UTM easting and northing from full, parsed USNG coordinate
-	this.toUTMFromFullParsedUSNG = function(utm_zone, grid_zone, grid_square, easting, northing, precision)
+	this.toUTMFromFullParsedUSNG = function(utm_zone, grid_zone, grid_square, grid_easting, grid_northing, precision)
 	{
 		var utm_easting = 0;
 		var utm_northing = 0;
@@ -202,8 +202,8 @@ window.USNG2 = function() {
 			throw("USNG: Invalid USNG 100km grid designator.");
 			//throw(RangeError("USNG: Invalid USNG 100km grid designator."));
 		
-		utm_easting = ((ew_idx + 1) * 100000) + easting; // Should be [100000, 9000000]
-		utm_northing = ((ns_idx + 0) * 100000) + northing; // Should be [0, 2000000)
+		utm_easting = ((ew_idx + 1) * 100000) + grid_easting; // Should be [100000, 9000000]
+		utm_northing = ((ns_idx + 0) * 100000) + grid_northing; // Should be [0, 2000000)
 
 		// TODO: this really depends on easting too...
 		// At this point know UTM zone, Grid Zone (min latitude), and easting
@@ -225,11 +225,15 @@ window.USNG2 = function() {
 		}
 
 		if(ll_utm_zone != utm_zone || ll_grid_zone != grid_zone) {
-			;//throw("USNG: calculated coordinate not in correct UTM or grid zone! Supplied: "+utm_zone+grid_zone+" Calculated: "+ll_utm_zone+ll_grid_zone);
+			throw("USNG: calculated coordinate not in correct UTM or grid zone! Supplied: "+utm_zone+grid_zone+" Calculated: "+ll_utm_zone+ll_grid_zone);
 			//throw(RangeError("USNG: calculated coordinate not in correct UTM or grid zone! Supplied: "+utm_zone+grid_zone+" Calculated: "+ll_utm_zone+ll_grid_zone));
 		}
-		
-		return { zone : utm_zone, easting : utm_easting, northing : utm_northing, precision : precision };	
+
+		if(ll.lat > 84.0 || ll.lat < -80) 
+			throw("USNG: Latitude outside valid UTM range");
+	
+		var usng_string = String(utm_zone) + grid_zone + " " + grid_square + " " + grid_easting + " " + grid_northing;
+		return { zone : utm_zone, easting : utm_easting, northing : utm_northing, precision : precision, usng: usng_string };	
 	}
 
 	/* Method to convert a USNG coordinate string into a NAD83/WGS84 LonLat Point 
@@ -332,13 +336,13 @@ window.USNG2 = function() {
 			// Need to wrap UTM zones mod 60
 			// TODO: check zones A,B,Y,Z.
 			for(utm_zone = ll_utm_zone - 1; utm_zone <= ll_utm_zone+1; utm_zone++) { // still true at 80*?
-				for(grid_zone_idx = 0; grid_zone_idx < 20; grid_zone_idx++) {
+				for(var grid_zone_idx = 0; grid_zone_idx < 20; grid_zone_idx++) {
 					grid_zone = GridZones[grid_zone_idx];
 					try {
-						//console.log(utm_zone + grid_zone + grid_square + digits);
 						var result = this.toLonLat((utm_zone%60) + grid_zone + grid_square + digits); // usng should be [A-Z][A-Z][0-9]+
 
 						var arc_distance = this.llDistance(initial_lonlat, result);
+						//console.log(utm_zone + grid_zone + grid_square + digits + " " + arc_distance);
 						if(arc_distance < min_arc_distance) {
 							min_arc_distance = arc_distance;
 							min_utm_zone = utm_zone % 60;
@@ -371,7 +375,7 @@ window.USNG2 = function() {
 
 			// Check the min ranges that need to be searched based on the spec.
 			for(utm_zone = ll_utm_zone-1; utm_zone <= ll_utm_zone+1; utm_zone++) { // still true at 80*?
-				for(grid_zone_idx = ll_grid_zone_idx - 1; grid_zone_idx <= ll_grid_zone_idx + 1; grid_zone_idx++) {
+				for(var grid_zone_idx = ll_grid_zone_idx - 1; grid_zone_idx <= ll_grid_zone_idx + 1; grid_zone_idx++) {
 					grid_zone = GridZones[grid_zone_idx];
 					var grid_square_set = utm_zone % 6;
 					var ns_grid;
@@ -405,13 +409,14 @@ window.USNG2 = function() {
 							throw("Can't get here");
 					}
 					//console.log(utm_zone + grid_zone);
-					for(ns_idx = 0; ns_idx < 20; ns_idx++) {
-						for(ew_idx = 0; ew_idx < 8; ew_idx++) {
+					for(var ns_idx = 0; ns_idx < 20; ns_idx++) {
+						for(var ew_idx = 0; ew_idx < 8; ew_idx++) {
 							try {
 								grid_square = ew_grid[ew_idx]+ns_grid[ns_idx];
 								var result = this.toLonLat((utm_zone%60) + grid_zone + grid_square + digits); // usng should be [A-Z][A-Z][0-9]+
 
 								var arc_distance = this.llDistance(initial_lonlat, result);
+								//console.log(utm_zone + grid_zone + grid_square + digits + " " + arc_distance);
 								if(arc_distance < min_arc_distance) {
 									min_arc_distance = arc_distance;
 									min_utm_zone = utm_zone % 60;
@@ -419,7 +424,7 @@ window.USNG2 = function() {
 									min_grid_square = grid_square;
 								}
 							} catch(e) {
-								; //alert("USNG: upstream: "+e); // catch range errors and ignore
+								; //console.log("USNG: upstream: "+e); // catch range errors and ignore
 							}
 						}
 					}
@@ -450,7 +455,7 @@ window.USNG2 = function() {
 		if(! ((grid_zone == "A") || (grid_zone == "B") || (grid_zone == "Y") || (grid_zone == "Z")))
 			throw( "UPS only valid in zones A, B, Y, and Z" );
 
-		var grid_square = "??";
+		var grid_square;
 	
 		var grid_square_x_idx = Math.floor((ups_x - 2000000) / 100000);
 		var grid_square_y_idx = Math.floor((ups_y - 2000000) / 100000);
@@ -533,7 +538,7 @@ window.USNG2 = function() {
 			default:
 				throw( "UPS only valid in zones A, B, Y, and Z" );
 		};
-		console.log(x_idx, y_idx);
+		//console.log(x_idx, y_idx);
 		ups_x += x_idx * 100000;
 		ups_y += y_idx * 100000;
 
@@ -553,7 +558,8 @@ window.USNG2 = function() {
 				throw("USNG: Grid Zone Y or Z but Latitude < 84.");
 		}
 
-		return { grid_zone : grid_zone, x : ups_x, y : ups_y, precision : precision };	
+		var usng_string = grid_zone + " " + grid_square + " " + grid_x + " " + grid_y;
+		return { grid_zone : grid_zone, x : ups_x, y : ups_y, precision : precision, usng: usng_string };	
 	}
 
 
@@ -610,18 +616,19 @@ window.USNG2 = function() {
 		var grid_zone = result.grid_zone;
 		var ll;
 
-		console.log(result);
+		//console.log(result);
 		if(south_proj && (grid_zone == "A" || grid_zone == "B")) {
 			var pt = {x: result.x, y: result.y};
 			Proj4js.transform( south_proj, ll_proj, pt );
-			ll = { lon: pt.x, lat: pt.y, precision: result.precision };
+			ll = { lon: pt.x, lat: pt.y, precision: result.precision, usng: result.usng };
 		} else if(north_proj && (grid_zone == "Y" || grid_zone == "Z")) {
 			var pt = {x: result.x, y: result.y};
 			Proj4js.transform( north_proj, ll_proj, pt );
-			ll = { lon: pt.x, lat: pt.y, precision: result.precision };
+			ll = { lon: pt.x, lat: pt.y, precision: result.precision, usng: result.usng };
 		} else {
 			ll = utm_proj.invProj(result.zone, result.easting, result.northing);
 			ll.precision = result.precision;
+			ll.usng = result.usng;
 		}
 		return (ll);
 	}
