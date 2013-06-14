@@ -40,10 +40,10 @@ window.USNG2 = function() {
 	var EWLetters25 = ['J','K','L','M','N','P','Q','R'];
 	var EWLetters36 = ['S','T','U','V','W','X','Y','Z'];
 
-	//                  -80  -72  -64  -56  -48  -40  -32  -24  -16  -08   0    8   16   24   32   40   48   56   64   72   (*Latitude) 
+	//                  -80  -72  -64  -56  -48  -40  -32  -24  -16  -8    0    8   16   24   32   40   48   56   64   72   (*Latitude) 
   //                                                                                                 Handle oddball zone 80-84
 	var GridZones    = ['C', 'D', 'E', 'F', 'G', 'H', 'J', 'K', 'L', 'M', 'N', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'X'];
-	var GridZonesDeg = [-80, -72, -64, -56, -48, -40, -32, -24, -16, -08,  0,   8,  16,  24,  32,  40,  48,  58,  64,  72,  80];
+	var GridZonesDeg = [-80, -72, -64, -56, -48, -40, -32, -24, -16, -8,   0,   8,  16,  24,  32,  40,  48,  58,  64,  72,  80];
 	
 	// TODO: This is approximate and actually depends on longitude too.
 	var GridZonesNorthing = new Array(20);	
