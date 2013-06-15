@@ -6,8 +6,9 @@ USNG (United States National Grid) and by association the MGRS easier.  It
 supports converting to and from USNG/MGRS and Latitude/Longitude (additionally
 UTM and UPS conversions are supported in the appropriate zones.)
 
-Support for the 4 UPS zones (A,B,Y & Z) near the poles requires the Proj4js
-library.  Support for the 60 UTM zones is provided by a built in UTM library.
+Support for the 4 UPS zones (A,B,Y & Z) near the poles requires the [Proj4js
+library](http://trac.osgeo.org/proj4js/).  Support for the 60 UTM zones is
+provided by a built in UTM library.
 
 On conversion to USNG, the coordinates are produced based on the specified
 precision of the input.
@@ -44,8 +45,8 @@ Usage:
 ======
 
 ```html
-<script src="usng2.js"/>
 <script src="proj4js-compressed.js"/>
+<script src="usng2.js"/>
 ```
 
 ```javascript
