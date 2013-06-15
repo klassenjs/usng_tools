@@ -1,11 +1,7 @@
-// Library to convert between NAD83 Lat/Lon and US National Grid
-// Based on the FGDC-STS-011-2001 spec at http://www.fgdc.gov/standards/projects/FGDC-standards-projects/usng/fgdc_std_011_2001_usng.pdf
-// Also based on the UTM library already in GeoMOOSE
-// (c) Jim Klassen 4/2008
-// Not tested in southern hemisphere...
-// Known to fail for USNG zones A and B
-
 /*
+ * Library to convert between NAD83 Lat/Lon and US National Grid
+ * Maintained at https://github.com/klassenjs/usng_tools
+ *
  * License:
  * 
  * Copyright (c) 2008-2013 James Klassen
@@ -27,6 +23,15 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
  * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
  * IN THE SOFTWARE.
+ */
+
+/* TODO: Norway and others odd grid
+ *       UTM as hash instead of function?
+ *       More tolerant of extended zones in UPS zones?
+ *       Return box instead of point?
+ *       Return list of coordinates w/distances for truncated search as well as best.
+ *       Internalize UPS projection (remove proj4js dependency).
+ *       
  */
 
 window.USNG2 = function() {
@@ -192,7 +197,7 @@ window.USNG2 = function() {
 
 		// TODO: this really depends on easting too...
 		// At this point know UTM zone, Grid Zone (min latitude), and easting
-		// Right now this is lookup table returns a max number based on lon == utm zone center 	
+		// Right now this is look up table returns a max number based on lon == utm zone center 	
 		var min_northing = GridZonesNorthing[GridZones.indexOf(grid_zone)]; // Unwrap northing to ~ [0, 10000000]
 		utm_northing += 2000000 * Math.ceil((min_northing - utm_northing) / 2000000);
 
@@ -398,7 +403,7 @@ window.USNG2 = function() {
 		} else if(initial_lonlat) {
 			// We need to find the utm_zone, grid_zone and 100km grid designator
 			// Find the closest grid zone within the specified easting and northing
-			// Note: may cross UTM zone boundries!
+			// Note: may cross UTM zone boundaries!
 			// Linear search all possible points (TODO: try to put likely guesses near top of list)
 			var min_arc_distance = 1000;
 			var min_utm_zone  = null;
