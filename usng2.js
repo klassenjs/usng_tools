@@ -52,7 +52,7 @@ window.USNG2 = function() {
 	
 	// TODO: This is approximate and actually depends on longitude too.
 	var GridZonesNorthing = new Array(20);	
-	for(i = 0 ; i < 20; i++) {
+	for(var i = 0 ; i < 20; i++) {
 		GridZonesNorthing[i] = 110946.259 * GridZonesDeg[i]; // == 2 * PI * 6356752.3 * (latitude / 360.0)
 	}
 
