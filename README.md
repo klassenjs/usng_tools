@@ -35,9 +35,9 @@ The USNG reference page can be found at: http://www.fgdc.gov/usng
 
 Other references used:
 
-FGDC-STD-011-2001: http://www.fgdc.gov/standards/projects/FGDC-standards-projects/usng/fgdc_std_011_2001_usng.pdf
-MGRS specification: http://earth-info.nga.mil/GandG/publications/tm8358.1/tr83581b.html
-MGRS Zones A,B,Y,Z 100km grids: http://earth-info.nga.mil/GandG/coordsys/grids/universal_grid_system.html
+- FGDC-STD-011-2001: http://www.fgdc.gov/standards/projects/FGDC-standards-projects/usng/fgdc_std_011_2001_usng.pdf
+- MGRS specification: http://earth-info.nga.mil/GandG/publications/tm8358.1/tr83581b.html
+- MGRS Zones A,B,Y,Z 100km grids: http://earth-info.nga.mil/GandG/coordsys/grids/universal_grid_system.html
 
 
 Usage:
@@ -49,36 +49,36 @@ Usage:
 ```
 
 ```javascript
-	u = new USNG2();
+u = new USNG2();
 
-	//
-	// Conversions from USNG to Lat/Lon
-	//
+//
+// Conversions from USNG to Lat/Lon
+//
 
-	console.log(u.toLonLat( "18S UJ 228 070" ));
-	// Returns Object {lon: -77.04324684425941, lat: 38.8940174428622, precision: 3}
+console.log(u.toLonLat( "18S UJ 228 070" ));
+// Returns Object {lon: -77.04324684425941, lat: 38.8940174428622, precision: 3}
 
-	console.log(u.toLonLat( "UJ 228 070", {lon: -77, lat: 39} ));
-	// Returns Object {lon: -77.04324684425941, lat: 38.8940174428622, precision: 3}
+console.log(u.toLonLat( "UJ 228 070", {lon: -77, lat: 39} ));
+// Returns Object {lon: -77.04324684425941, lat: 38.8940174428622, precision: 3}
 
-	console.log(u.toLonLat( "228 070", {lon: -77, lat: 39} ));
-	// Returns Object {lon: -77.04324684425941, lat: 38.8940174428622, precision: 3}
+console.log(u.toLonLat( "228 070", {lon: -77, lat: 39} ));
+// Returns Object {lon: -77.04324684425941, lat: 38.8940174428622, precision: 3}
 
-	console.log(u.toLonLat( "B AN" ));
-	// Returns Object {lon: 0, lat: -90, precision: 0}
+console.log(u.toLonLat( "B AN" ));
+// Returns Object {lon: 0, lat: -90, precision: 0}
 
-	console.log(u.toLonLat( "Y ZP 12345 12345" ));
-	// Returns Object {lon: -171.85365493260602, lat: 84.43254784831868, precision: 5}
+console.log(u.toLonLat( "Y ZP 12345 12345" ));
+// Returns Object {lon: -171.85365493260602, lat: 84.43254784831868, precision: 5}
 
-	//
-	// Conversions from Lat/Lon to USNG
-	//
+//
+// Conversions from Lat/Lon to USNG
+//
 
-	console.log(u.fromLonLat( { lon: -77.043, lat: 38.894 }, 3 ));
-	// Returns "18S UJ 228 069"
+console.log(u.fromLonLat( { lon: -77.043, lat: 38.894 }, 3 ));
+// Returns "18S UJ 228 069"
 
-	console.log(u.fromLonLat( { lon: -77.043, lat: 38.894 }, 5 ));
-	// Returns "18S UJ 22821 06997"
+console.log(u.fromLonLat( { lon: -77.043, lat: 38.894 }, 5 ));
+// Returns "18S UJ 22821 06997"
 ```
 
 License:
